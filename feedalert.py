@@ -44,8 +44,8 @@ class video:
 	def sendEmailAlert(self, destEmailAddress, feedType, liveStatus):
 		fromAddress = 'alerts@sldesksite.com'
 		toAddress = destEmailAddress
-		smtpUsername = 'techalert@desksite.com'
-		smtpPassword = 'Internal1'
+		smtpUsername = 'dummy address'
+		smtpPassword = 'dummy pass'
 		smtpServer = 'smtp.sendgrid.net'
 		smtpPort = '587'
 		smtpString = str.join(':', (smtpServer, smtpPort))
@@ -264,9 +264,9 @@ def readListOfTeams(filesPath):
 
 def sendErrorEmail(errorMessage):
 		fromAddress = 'alerts@sldesksite.com'
-		toAddress = 'obijleveld@desksite.com'
-		smtpUsername = 'techalert@desksite.com'
-		smtpPassword = 'Internal1'
+		toAddress = 'dummy recipient'
+		smtpUsername = 'dummy address'
+		smtpPassword = 'dummy pass'
 		smtpServer = 'smtp.sendgrid.net'
 		smtpPort = '587'
 		smtpString = str.join(':', (smtpServer, smtpPort))
