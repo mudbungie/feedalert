@@ -1,28 +1,21 @@
 #!/usr/local/bin/python3.4
 
-import sys, sqlite3, datetime, getopt, csv, smtplib
-from datetime import timedelta
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
-#teams = ['Bears','Bengals','Bills','Broncos','Browns','Buccaneers','Chargers','Colts','Dolphins','Giants','Jaguars','Jets','Lions','Patriots','Raiders','Rams','Ravens','Redskins','Steelers','Texans','Vikings']
-
-
-def sendEmail(html, to_addrs):
-    auth_addrs = "dummy address"
-    from_addrs = "contentalert@sldesksite.com"
-    from_addrs_pass = "dummy pass"
+def sendEmail(authUser, authPass, recipient, subject, body, fromAddress='contentalert@sldesksite.com'):
+	import smtplib
+	from email.mime.multipart import MIMEMultipart
+	from email.mime.text import MIMEText
     smtpServer = 'smtp.sendgrid.net'
     smtpPort = 587
     
     # Create message container - the correct MIME type is multipart/alternative.
     msg = MIMEMultipart('alternative')
-    msg['Subject'] = "Link"
-    msg['From'] = from_addrs
-    msg['To'] = to_addrs
+    msg['Subject'] = subject
+    msg['From'] = fromAddress
+    msg['To'] = recipient
 
     # Record the MIME types of both parts - text/plain and text/html.
-    message = MIMEText(html, 'html')
+    message = MIMEText(body, 'html')
 
     # Attach into message container.
     msg.attach(message)
@@ -32,14 +25,8 @@ def sendEmail(html, to_addrs):
     s.ehlo()
     s.starttls()
     s.ehlo()
-
-    s.login(auth_addrs, from_addrs_pass)
+    s.login(authUser, authPass)
 
     # sendmail function takes 3 arguments: sender's address, recipient's address, message
-    s.sendmail(from_addrs, to_addrs, msg.as_string())
-    s.quit()
-    
-    
-if __name__ == "__main__":
-	html = '<html><body><h1>Videos received by User</h1><br><br>'
-	sendEmail(html,"rbijleveld@desksite.com")
+	s.sendmail(fromAddress, recipient, msg.as_string())
+	s.quit()

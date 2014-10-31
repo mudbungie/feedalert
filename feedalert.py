@@ -1,5 +1,6 @@
 #!/usr/local/bin/python3.4
 
+### Common libraries 
 import datetime
 import urllib.request
 import calendar
@@ -8,6 +9,9 @@ import os
 import sys
 import re
 import linecache
+
+### My own libraries
+import sendEmail
 
 class video:
 	def __init__(self, videoName, teamName, teamAbbrev, folderURL):
@@ -42,8 +46,6 @@ class video:
 		if downloadOrNot == 'download':
 			self.download(pathToContentDirectories, teamsList)
 	def sendEmailAlert(self, destEmailAddress, feedType, liveStatus):
-		fromAddress = 'alerts@sldesksite.com'
-		toAddress = destEmailAddress
 		smtpUsername = 'dummy address'
 		smtpPassword = 'dummy pass'
 		smtpServer = 'smtp.sendgrid.net'
@@ -263,63 +265,91 @@ def readListOfTeams(filesPath):
 		return dict(line.strip().split() for line in teamsList)
 
 def sendErrorEmail(errorMessage):
-		fromAddress = 'alerts@sldesksite.com'
-		toAddress = 'dummy recipient'
-		smtpUsername = 'dummy address'
-		smtpPassword = 'dummy pass'
-		smtpServer = 'smtp.sendgrid.net'
-		smtpPort = '587'
-		smtpString = str.join(':', (smtpServer, smtpPort))
-		messageSubject = "feedalert error"
-		try:
-			messageBody = sys.argv[1]
-		except:
-			messageBody = 'cannot get teamName '
-		messageBody = ' \'' + messageBody + errorMessage + '\''
-			
-		# this is the literal command that is executed by the OS shell
-		compiledSendEmailCommand = str.join(' ', ('/usr/bin/sendemail -xu', smtpUsername, '-xp', smtpPassword, '-s', smtpString, '-f', fromAddress, '-t', toAddress, '-u', messageSubject, '-m', messageBody))#, '>> /dev/null'))
-		# this is the execution of that command
-		exitStatus = int(1)
-		while not exitStatus == 0:
-			exitStatus = os.system(compiledSendEmailCommand)
+	toAddress = 'dummy recipient'
+	smtpUsername = 'dummy address'
+	smtpPassword = 'dummy pass'
+	smtpServer = 'smtp.sendgrid.net'
+	smtpPort = '587'
+	smtpString = str.join(':', (smtpServer, smtpPort))
+	messageSubject = "feedalert error"
+	try:
+		messageBody = sys.argv[1]
+	except:
+		messageBody = 'cannot get teamName '
+	messageBody = ' \'' + messageBody + errorMessage + '\''
+		
+	# this is the literal command that is executed by the OS shell
+	compiledSendEmailCommand = str.join(' ', ('/usr/bin/sendemail -xu', smtpUsername, '-xp', smtpPassword, '-s', smtpString, '-f', fromAddress, '-t', toAddress, '-u', messageSubject, '-m', messageBody))#, '>> /dev/null'))
+	# this is the execution of that command
+	exitStatus = int(1)
+	while not exitStatus == 0:
+		exitStatus = os.system(compiledSendEmailCommand)
 
+class team(self, name, abbreviation, desksiteID, frontendName):
+	self.name = name
+	self.abbreviation = abbreviation
+	self.desksiteID = desksiteID
+	self.frontendName = frontendName
 
 if __name__ == "__main__":
 	try:
 		teamName = sys.argv[1]
-		teamNameForFrontend = sys.argv[2]
-		teamAbbrev = sys.argv[3]
-		destEmailAddress = sys.argv[4]
-		downloadOrNot = sys.argv[5]
-		feedType = sys.argv[6]
-		liveStatus = sys.argv[7]
+		destEmailAddress = sys.argv[2]
+		downloadOrNot = sys.argv[3]
+		feedType = sys.argv[4]
+		liveStatus = sys.argv[5]
 		filesPath = '/home/webmon/python/'
-		oldFrontendVideosFile = str.join('', (filesPath, teamName, ".frontendvideos.list"))
-		oldBackendVideosFile = str.join('', (filesPath, teamName, ".backendvideos.list"))
-		logFile = filesPath + 'contentegress.log'
-		emailLogFile = filesPath + 'emailegress.log'
+		assetsPath = filesPath + 'assets/'
+		logsPath = filesPath + 'logs/'
+		oldVideosPath = filesPath + 'oldvideos/'
+		oldFrontendVideosFile = str.join('', (oldVideosPath + ".frontendvideos"))
+		oldBackendVideosFile = str.join('', (oldVideosPath + ".backendvideos"))
+		logFile = logsPath + 'contentegress.log'
+		emailLogFile = logsPath + 'emailegress.log'
 		teamsList = readListOfTeams(filesPath)
 		pathToContentDirectories = '/mnt/NFL'
+		
+		# read some values from sensitive data file
+		with open(assetsPath + 'feedalert.conf', 'r') as confFile:
+			for line in confFile.readlines():
+				if line.startswith('reportingAddress='):
+					reportingAddress = line.split('=')[-1]
+				elif line.startswith('smtpUser='):
+					smtpUser = line.split('=')[-1]
+				elif line.startswith('smtpPass'):
+					smtpPass = line.split('=')[-1]
 
-		# URL for the backend	
-		baseURL = str.join('', ('http://prod.video.', teamName, '.clubs.nfl.com/', teamAbbrev, '/videos/dct/video_audio/'))
-		yearString = str(datetime.datetime.now().year)
-		monthNumericString = str(datetime.datetime.today().month).zfill(2)
-		monthNameString = calendar.month_name[datetime.datetime.now().month]
-		microsecondString = str(datetime.datetime.now().microsecond)
+		# assemble information about the team from a file
+		with open(assetsPath + teams.list, 'r') as teamsFile:
+			teamFileLines = teamsFile.readlines()
+			teamInfo = next(line for line in teamFileLines if matchCondition(line.startswith(teamName))).split(' ')
+			currentTeam = team(teamInfo[0], teamInfo[1], teamInfo[2], teamInfo[3])
+
+		# URL for the backend
+		baseURL = str.join('', ('http://prod.video.', currentTeam.name, '.clubs.nfl.com/', currentTeam.abbreviation, '/videos/dct/video_audio/'))
+		now = datetime.datetime.now()
+		yearString = str(now.year)
+		monthNumericString = str(now.month).zfill(2)
+		monthNameString = calendar.month_name[now.month]
+		microsecondString = str(now.microsecond)
 		currentDateFolder = str.join('', (yearString, '/', monthNumericString, '-', monthNameString, '/?', microsecondString))
 		backendURL = str.join('', (baseURL, currentDateFolder))
 		# URL for the frontend
-		frontendURL = str.join('', ('http://www.', teamNameForFrontend, '.com/cda-web/feeds/video'))
+		frontendURL = str.join('', ('http://www.', team.frontendName, '.com/cda-web/feeds/video'))
 
 
 		# global variables
 		# frankly, I should make most of these global. It would make the program a hell of a lot easier to read
 		MaximumVideoSize = 100000000
 		AcceptableCompressions = [2000, 1200, 700]
-	
-		currentFrontendVideos = getCurrentFrontendVideos(teamName, teamAbbrev, frontendURL, backendURL)
+
+		try:
+			currentFrontendVideos = getCurrentFrontendVideos(teamName, teamAbbrev, frontendURL, backendURL)
+		except urllib.URLError, error:
+			if error.code == 403 and currentTeam.name = 'ravens':
+				pass
+			else:
+				raise
 		currentBackendVideos = getCurrentBackendVideos(teamName, teamAbbrev, backendURL)
 		oldFrontendVideos = getOldVideosFromFile(oldFrontendVideosFile, teamName, teamAbbrev)
 		oldBackendVideos = getOldVideosFromFile(oldBackendVideosFile, teamName, teamAbbrev)
