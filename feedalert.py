@@ -13,15 +13,39 @@ import linecache
 ### My own libraries
 import sendEmail
 
+
+
+class team(self, name, abbreviation, desksiteID, frontendName, liveStatus):
+	self.name = name
+	self.abbreviation = abbreviation
+	self.desksiteID = desksiteID
+	self.frontendName = frontendName
+	self.liveStatus = liveStatus
+	self.frontendURL = 'http://www.' + self.frontendName + '.com/cda-web/feeds/video'
+
+	# this part is a thick enough that I wanted to split it into a couple lines
+	# it's really just assembling the current date folder from the static information and the date
+	backendURLBase = 'http://prod.video.' + self.name + '.clubs.nfl.com/' + self.abbreviation + '/videos/dct/video_audio/'
+	now = datetime.datetime.now()
+	yearString = str(now.year)
+	monthNumericString = str(now.month).zfill(2)
+	monthNameString = calendar.month_name[now.month]
+	microsecondString = str(now.microsecond)
+	currentDateFolder = yearString + '/' + monthNumericString + '-' + monthNameString + '/?' + microsecondString
+	self.backendURL = backendURLBase + currentDateFolder
+
 class video:
-	def __init__(self, videoName, teamName, teamAbbrev, folderURL):
+	def __init__(self, videoName, team):
 		self.videoName = videoName
 		self.compressions = []
-		self.teamName = teamName
+		self.team = team
 		self.teamAbbrev = teamAbbrev
 		self.fileNameEnd = 'k.mp4'
-		if folderURL:
-			self.folderURL = folderURL.split('?')[0]
+		
+		# this is because our URL structure involves intentionally malformed requests
+		# in order to circumvent caching
+		# this line strips that out
+		self.team.folderURL = folderURL.split('?')[0]
 	def newCompression(self, compression):
 		self.compressions.append(compression)
 		self.compressions.sort(reverse = True)
@@ -45,14 +69,10 @@ class video:
 		self.logEmailAlert(logFile, feedType)
 		if downloadOrNot == 'download':
 			self.download(pathToContentDirectories, teamsList)
-	def sendEmailAlert(self, destEmailAddress, feedType, liveStatus):
-		smtpUsername = 'dummy address'
-		smtpPassword = 'dummy pass'
-		smtpServer = 'smtp.sendgrid.net'
-		smtpPort = '587'
-		smtpString = str.join(':', (smtpServer, smtpPort))
-		messageSubject = str.join(' ', (teamName, feedType, liveStatus))
+	def sendEmailAlert(self, destEmailAddress, feedType, liveStatus, smtpUser, smtpPass):
+		messageSubject = self.teamName + ' ' + feedType + ' ' + liveStatus
 		messageBody = self.videoName + str(self.bestCompression) + self.fileNameEnd
+		sendEmail.sendEmail(smtpUser, smtpPass, destEmailAddress, )
 		# this is the literal command that is executed by the OS shell
 		compiledSendEmailCommand = str.join(' ', ('/usr/bin/sendemail -xu', smtpUsername, '-xp', smtpPassword, '-s', smtpString, '-f', fromAddress, '-t', toAddress, '-u', messageSubject, '-m', messageBody))#, '>> /dev/null'))
 		# this is the execution of that command
@@ -285,15 +305,10 @@ def sendErrorEmail(errorMessage):
 	while not exitStatus == 0:
 		exitStatus = os.system(compiledSendEmailCommand)
 
-class team(self, name, abbreviation, desksiteID, frontendName):
-	self.name = name
-	self.abbreviation = abbreviation
-	self.desksiteID = desksiteID
-	self.frontendName = frontendName
 
 if __name__ == "__main__":
 	try:
-		teamName = sys.argv[1]
+		currentTeam = sys.argv[1]
 		destEmailAddress = sys.argv[2]
 		downloadOrNot = sys.argv[3]
 		feedType = sys.argv[4]
@@ -302,8 +317,8 @@ if __name__ == "__main__":
 		assetsPath = filesPath + 'assets/'
 		logsPath = filesPath + 'logs/'
 		oldVideosPath = filesPath + 'oldvideos/'
-		oldFrontendVideosFile = str.join('', (oldVideosPath + ".frontendvideos"))
-		oldBackendVideosFile = str.join('', (oldVideosPath + ".backendvideos"))
+		oldFrontendVideosFile = oldVideosPath + '.frontendvideos'
+		oldBackendVideosFile = oldVideosPath + '.backendvideos'
 		logFile = logsPath + 'contentegress.log'
 		emailLogFile = logsPath + 'emailegress.log'
 		teamsList = readListOfTeams(filesPath)
@@ -322,35 +337,24 @@ if __name__ == "__main__":
 		# assemble information about the team from a file
 		with open(assetsPath + teams.list, 'r') as teamsFile:
 			teamFileLines = teamsFile.readlines()
+			# takes the first line that starts with the specified team
 			teamInfo = next(line for line in teamFileLines if matchCondition(line.startswith(teamName))).split(' ')
-			currentTeam = team(teamInfo[0], teamInfo[1], teamInfo[2], teamInfo[3])
-
-		# URL for the backend
-		baseURL = str.join('', ('http://prod.video.', currentTeam.name, '.clubs.nfl.com/', currentTeam.abbreviation, '/videos/dct/video_audio/'))
-		now = datetime.datetime.now()
-		yearString = str(now.year)
-		monthNumericString = str(now.month).zfill(2)
-		monthNameString = calendar.month_name[now.month]
-		microsecondString = str(now.microsecond)
-		currentDateFolder = str.join('', (yearString, '/', monthNumericString, '-', monthNameString, '/?', microsecondString))
-		backendURL = str.join('', (baseURL, currentDateFolder))
-		# URL for the frontend
-		frontendURL = str.join('', ('http://www.', team.frontendName, '.com/cda-web/feeds/video'))
-
+			currentTeam = team(teamInfo[0], teamInfo[1], teamInfo[2], teamInfo[3], teamInfo[4], teamInfo[5])
 
 		# global variables
 		# frankly, I should make most of these global. It would make the program a hell of a lot easier to read
 		MaximumVideoSize = 100000000
 		AcceptableCompressions = [2000, 1200, 700]
 
+		currentFrontendVideos = getCurrentFrontendVideos(teamName, teamAbbrev, frontendURL, backendURL)
 		try:
-			currentFrontendVideos = getCurrentFrontendVideos(teamName, teamAbbrev, frontendURL, backendURL)
+		currentBackendVideos = getCurrentBackendVideos(teamName, teamAbbrev, backendURL)
 		except urllib.URLError, error:
+			# the ravens locked us out of their backend
 			if error.code == 403 and currentTeam.name = 'ravens':
 				pass
 			else:
 				raise
-		currentBackendVideos = getCurrentBackendVideos(teamName, teamAbbrev, backendURL)
 		oldFrontendVideos = getOldVideosFromFile(oldFrontendVideosFile, teamName, teamAbbrev)
 		oldBackendVideos = getOldVideosFromFile(oldBackendVideosFile, teamName, teamAbbrev)
 
