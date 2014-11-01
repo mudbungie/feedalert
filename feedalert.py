@@ -15,24 +15,25 @@ import sendEmail
 
 
 
-class team(self, name, abbreviation, desksiteID, frontendName, liveStatus):
-	self.name = name
-	self.abbreviation = abbreviation
-	self.desksiteID = desksiteID
-	self.frontendName = frontendName
-	self.liveStatus = liveStatus
-	self.frontendURL = 'http://www.' + self.frontendName + '.com/cda-web/feeds/video'
+class team:
+	def __init__(self, name, abbreviation, desksiteID, frontendName, liveStatus):
+		self.name = name
+		self.abbreviation = abbreviation
+		self.desksiteID = desksiteID
+		self.frontendName = frontendName
+		self.liveStatus = liveStatus
+		self.frontendURL = 'http://www.' + self.frontendName + '.com/cda-web/feeds/video'
 
-	# this part is a thick enough that I wanted to split it into a couple lines
-	# it's really just assembling the current date folder from the static information and the date
-	backendURLBase = 'http://prod.video.' + self.name + '.clubs.nfl.com/' + self.abbreviation + '/videos/dct/video_audio/'
-	now = datetime.datetime.now()
-	yearString = str(now.year)
-	monthNumericString = str(now.month).zfill(2)
-	monthNameString = calendar.month_name[now.month]
-	microsecondString = str(now.microsecond)
-	currentDateFolder = yearString + '/' + monthNumericString + '-' + monthNameString + '/?' + microsecondString
-	self.backendURL = backendURLBase + currentDateFolder
+		# this part is a thick enough that I wanted to split it into a couple lines
+		# it's really just assembling the current date folder from the static information and the date
+		backendURLBase = 'http://prod.video.' + self.name + '.clubs.nfl.com/' + self.abbreviation + '/videos/dct/video_audio/'
+		now = datetime.datetime.now()
+		yearString = str(now.year)
+		monthNumericString = str(now.month).zfill(2)
+		monthNameString = calendar.month_name[now.month]
+		microsecondString = str(now.microsecond)
+		currentDateFolder = yearString + '/' + monthNumericString + '-' + monthNameString + '/?' + microsecondString
+		self.backendURL = backendURLBase + currentDateFolder
 
 class video:
 	def __init__(self, videoName, team):
@@ -130,10 +131,10 @@ class video:
 			self.bestCompression = ''
 			return True
 
-def getCurrentBackendVideos(teamName, teamAbbrev, backendURL):
+def getCurrentBackendVideos(team):
 	# get the page
 	try:
-		currentPage = urllib.request.urlopen(backendURL)
+		currentPage = urllib.request.urlopen(team.backendURL)
 		html = currentPage.read()
 		htmlDecoded = html.decode('utf-8', 'ignore')
 	except urllib.error.HTTPError as err:
@@ -141,17 +142,17 @@ def getCurrentBackendVideos(teamName, teamAbbrev, backendURL):
 			htmlDecoded = ''
 		else:
 			raise
-	return extractVideosFromPage(htmlDecoded, teamName, teamAbbrev, backendURL)
+	return extractVideosFromPage(htmlDecoded, team)
 
-def getCurrentFrontendVideos(teamName, teamAbbrev, frontendURL, backendURL):
+def getCurrentFrontendVideos(team):
 	# get the page
-	currentPage = urllib.request.urlopen(frontendURL)
+	currentPage = urllib.request.urlopen(team.frontendURL)
 	html = currentPage.read()
 	htmlDecoded = html.decode('utf-8', 'ignore')
 
-	return extractVideosFromPage(htmlDecoded, teamName, teamAbbrev, backendURL)
+	return extractVideosFromPage(htmlDecoded, team)
 
-def extractVideosFromPage(htmlDecoded, teamName, teamAbbrev, backendURL):
+def extractVideosFromPage(htmlDecoded, team):
 	# initialize the return list
 	currentVideos = dict()
 
@@ -164,7 +165,7 @@ def extractVideosFromPage(htmlDecoded, teamName, teamAbbrev, backendURL):
 				folderURL = '/'.join(splitLine[:-1]) + '/'
 				line = splitLine[-1]
 			else:
-				folderURL = backendURL
+				folderURL = team.backendURL
 			# splits the video into its filename root and the compression
 			if line.endswith('5000k.mp4'):
 				videoName = line[:-9]
@@ -196,7 +197,7 @@ def extractVideosFromPage(htmlDecoded, teamName, teamAbbrev, backendURL):
 				compression = None
 			# put the information into the dictionary of videos
 			if not videoName in currentVideos:
-				currentVideos[videoName] = video(videoName, teamName, teamAbbrev, folderURL)
+				currentVideos[videoName] = video(videoName, team)
 				if compression:
 					currentVideos[videoName].newCompression(compression)
 				else:
@@ -206,14 +207,14 @@ def extractVideosFromPage(htmlDecoded, teamName, teamAbbrev, backendURL):
 					currentVideos[videoName].newCompression(compression)
 	return currentVideos
 
-def getOldVideosFromFile(file, teamName, teamAbbrev):
+def getOldVideosFromFile(file, team):
 	oldVideos = dict()
 	try:
 		with open(file, 'r') as oldVideosFile:
 			for line in oldVideosFile:
 				lineFields = line.split()
 				videoName = lineFields.pop(0)
-				oldVideos[videoName] = video(videoName, teamName, teamAbbrev, None)
+				oldVideos[videoName] = video(videoName, team.name, team.abbreviation)
 				for compression in lineFields:
 					if not compression == 'None':
 						oldVideos[videoName].newCompression(int(compression))
@@ -346,25 +347,40 @@ if __name__ == "__main__":
 		MaximumVideoSize = 100000000
 		AcceptableCompressions = [2000, 1200, 700]
 
-		currentFrontendVideos = getCurrentFrontendVideos(teamName, teamAbbrev, frontendURL, backendURL)
-		try:
-		currentBackendVideos = getCurrentBackendVideos(teamName, teamAbbrev, backendURL)
-		except urllib.URLError, error:
-			# the ravens locked us out of their backend
-			if error.code == 403 and currentTeam.name = 'ravens':
-				pass
-			else:
-				raise
-		oldFrontendVideos = getOldVideosFromFile(oldFrontendVideosFile, teamName, teamAbbrev)
-		oldBackendVideos = getOldVideosFromFile(oldBackendVideosFile, teamName, teamAbbrev)
-
-		if feedType == 'frontend' or feedType == 'both':
-			releaseAppropriateVideos(currentFrontendVideos, oldFrontendVideos, destEmailAddress, 'frontend', liveStatus, logFile, pathToContentDirectories, teamsList, downloadOrNot)
-		if feedType == 'backend' or feedType == 'both':
-			releaseAppropriateVideos(currentBackendVideos, oldBackendVideos, destEmailAddress, 'backend', liveStatus, logFile, pathToContentDirectories, teamsList, downloadOrNot)
-	
-		updateOldVideosFile(oldFrontendVideosFile, currentFrontendVideos)
-		updateOldVideosFile(oldBackendVideosFile, currentBackendVideos)
+		# first we do the frontend videos
+		# done inside a retry loop because the internet is unreliable
+		attempts = 0
+		succeeded = False
+		while attempts < 3 and succeeded == False: 
+			try:
+				currentFrontendVideos = getCurrentFrontendVideos(currentTeam)
+				oldFrontendVideos = getOldVideosFromFile(oldFrontendVideosFile, team)
+				if feedType == 'frontend' or feedType == 'both':
+					releaseAppropriateVideos(currentFrontendVideos, oldFrontendVideos, destEmailAddress, 'frontend', currentTeam, logFile, pathToContentDirectories, downloadOrNot)
+				updateOldVideosFile(oldFrontendVideosFile, currentFrontendVideos)
+			except HTTPError as error:
+				# the cowboys feed doesn't exist for some reason
+				if error.code == 404 and currentTeam.name == 'cowboys':
+					pass
+				else:
+					raise
+		# then we do the backend videos
+		# inside a loop because things are unreliable
+		attempts = 0
+		succeeded = False
+		while attempts < 3 and succeeded == False:
+			try:
+				currentBackendVideos = getCurrentBackendVideos(currentTeam)
+				oldBackendVideos = getOldVideosFromFile(oldBackendVideosFile, currentTeam)
+				if feedType == 'backend' or feedType == 'both':
+					releaseAppropriateVideos(currentBackendVideos, oldBackendVideos, destEmailAddress, 'backend', currentTeam, logFile, pathToContentDirectories, downloadOrNot)
+				updateOldVideosFile(oldBackendVideosFile, currentBackendVideos)
+			except HTTPError as error:
+				# the ravens locked us out of their backend
+				if error.code == 403 and currentTeam.name == 'ravens':
+					pass
+				else:
+					raise
 	except:
 		exc_type, exc_obj, tb = sys.exc_info()
 		f = tb.tb_frame
@@ -372,6 +388,6 @@ if __name__ == "__main__":
 		filename = f.f_code.co_filename
 		linecache.checkcache(filename)
 		line = linecache.getline(filename, lineno, f.f_globals)
-		errorMessage = str('EXCEPTION IN ({}\n LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj)) + ' ' + frontendURL
-		sendErrorEmail(errorMessage)
+		errorMessage = str('EXCEPTION IN ({}\n LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj)) 
+		sendEmail.sendEmail(smtpUser, smtpPass, reportingAddress, 'feedalert error', errorMessage)
 		print('unhandled exception')
